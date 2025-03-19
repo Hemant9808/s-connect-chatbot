@@ -1,97 +1,104 @@
 'use client';
 
 import { useState } from 'react';
-import { ArrowUpTrayIcon } from '@heroicons/react/24/solid';
+import { ArrowUpTrayIcon, XMarkIcon } from '@heroicons/react/24/solid';
 
-export default function FileUpload() {
-  const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
+export default function FileUpload({ onClose }: { onClose: () => void }) {
+  const [file, setFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState('');
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setFile(e.target.files[0]);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim() || !content.trim() || isLoading) return;
+    if (!file || isLoading) return;
 
     setIsLoading(true);
-    setMessage('');
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('title', file.name);
 
     try {
       const response = await fetch('/api/upload', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          title: title.trim(),
-          content: content.trim(),
-        }),
+        body: formData,
       });
 
       const data = await response.json();
-
-      if (data.error) {
-        throw new Error(data.error);
-      }
-
-      setMessage('File uploaded successfully!');
-      setTitle('');
-      setContent('');
+      if (data.error) throw new Error(data.error);
+      
+      setMessage('Document uploaded successfully!');
+      setTimeout(() => {
+        onClose();
+        setMessage('');
+        setFile(null);
+      }, 2000);
     } catch (error) {
-      console.error('Error:', error);
-      setMessage('Failed to upload file. Please try again.');
+      console.error('Upload failed:', error);
+      setMessage('Failed to upload document. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="max-w-2xl mx-auto p-4">
+    <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md relative">
+      <button
+        onClick={onClose}
+        className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
+      >
+        <XMarkIcon className="w-6 h-6" />
+      </button>
+
+      <h2 className="text-xl font-semibold mb-4">Upload Document</h2>
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label htmlFor="title" className="block text-sm font-medium text-gray-700">
-            Title
-          </label>
+        <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
           <input
-            type="text"
-            id="title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-            required
-            disabled={isLoading}
+            type="file"
+            onChange={handleFileChange}
+            className="hidden"
+            id="file-upload"
+            accept=".txt,.pdf,.doc,.docx,.md"
           />
-        </div>
-        <div>
-          <label htmlFor="content" className="block text-sm font-medium text-gray-700">
-            Content
+          <label
+            htmlFor="file-upload"
+            className="cursor-pointer text-blue-600 hover:text-blue-700"
+          >
+            <ArrowUpTrayIcon className="w-8 h-8 mx-auto mb-2" />
+            <p className="text-sm text-gray-600">
+              {file ? file.name : 'Click to choose a file or drag it here'}
+            </p>
+            <p className="text-xs text-gray-500 mt-1">
+              Supported formats: .txt, .pdf, .doc, .docx, .md
+            </p>
           </label>
-          <textarea
-            id="content"
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            rows={10}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-            required
-            disabled={isLoading}
-          />
         </div>
+
         {message && (
-          <div className={`p-3 rounded-md ${
-            message.includes('successfully') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+          <div className={`p-3 rounded-lg text-center ${
+            message.includes('successfully') 
+              ? 'bg-green-100 text-green-700' 
+              : 'bg-red-100 text-red-700'
           }`}>
             {message}
           </div>
         )}
+
         <button
           type="submit"
-          disabled={isLoading || !title.trim() || !content.trim()}
-          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={!file || isLoading}
+          className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 
+                    disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
         >
-          <ArrowUpTrayIcon className="h-5 w-5 mr-2" />
-          Upload File
+          <ArrowUpTrayIcon className="w-5 h-5" />
+          {isLoading ? 'Uploading...' : 'Upload Document'}
         </button>
       </form>
     </div>
   );
-} 
+}

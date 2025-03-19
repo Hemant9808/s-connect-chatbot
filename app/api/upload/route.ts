@@ -4,25 +4,28 @@ import File from '@/models/File';
 
 export async function POST(req: Request) {
   try {
-    const { title, content } = await req.json();
+    const formData = await req.formData();
+    const file = formData.get('file') as File;
+    const title = formData.get('title') as string;
 
-    if (!title || !content) {
+    if (!file || !title) {
       return NextResponse.json(
-        { error: 'Title and content are required' },
+        { error: 'File and title are required' },
         { status: 400 }
       );
     }
 
+    const content = await file.text();
     await connectDB();
 
-    const file = await File.create({
+    const newFile = await File.create({
       title,
       content,
     });
 
     return NextResponse.json({ 
       message: 'File uploaded successfully',
-      file 
+      file: newFile 
     });
   } catch (error) {
     console.error('Error:', error);

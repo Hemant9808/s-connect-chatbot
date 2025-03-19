@@ -1,11 +1,10 @@
 import { NextResponse } from 'next/server';
-import OpenAI from 'openai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import connectDB from '@/lib/mongodb';
 import File from '@/models/File';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY!);
+const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
 export async function POST(req: Request) {
   try {
@@ -20,31 +19,25 @@ export async function POST(req: Request) {
     // Create context from files
     const fileContext = files.map(file => `${file.title}:\n${file.content}`).join('\n\n');
 
-    // Create messages array with system message and context
-    const messages = [
-      {
-        role: 'system',
-        content: `You are a helpful assistant that can answer questions based on both general knowledge and the following documents:\n\n${fileContext}\n\nWhen answering questions, first check if the information is available in the provided documents. If it is, use that information. If not, use your general knowledge.`
-      },
-      {
-        role: 'user',
-        content: message
-      }
-    ];
+    // Create the prompt
+    const prompt = `You are a helpful assistant that can answer questions based on both general knowledge and the following documents:\n\n${fileContext}\n\nWhen answering questions, first check if the information is available in the provided documents. If it is, use that information. If not, use your general knowledge.\n\nUser question: ${message}`;
 
-    // Get response from OpenAI
-    const completion = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
-      messages: messages as any,
-    });
+    // Generate response
+    const result = await model.generateContent(prompt);
+    console.log('Gemini Response:', result);
+    const response = result.response;
+    const text = response.text();
 
     return NextResponse.json({ 
-      response: completion.choices[0].message.content 
+      response: text
     });
-  } catch (error) {
-    console.error('Error:', error);
+  } catch (error: any) {
+    console.error('Error details:', error);
     return NextResponse.json(
-      { error: 'Failed to process your request' },
+      { 
+        error: error.message || 'Failed to process your request',
+        details: error.stack
+      },
       { status: 500 }
     );
   }
